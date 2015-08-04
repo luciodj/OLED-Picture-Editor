@@ -1,8 +1,7 @@
 #!usr/bin/env python
 #
-# OLED 96 x 40 display picture editor
+# OLED display picture editor
 #
-
 import sys
 from Tkinter import *
 import tkMessageBox
@@ -38,8 +37,9 @@ class EditorWindow():
             padx=10, pady=10, row=1, column=3)
 
         #------- editor canvas ----------------------------
-        brd = 1
-        graph = Canvas( win, width=wx*sf, height=wy*sf, relief='flat', bd=brd, bg='black')
+        brd = 2
+        self.brd = brd
+        graph = Canvas( win, width=(wx)*sf, height=(wy)*sf, relief='flat', bd=brd, bg='gray')
         graph.grid( padx=10, row=2, columnspan=4)
         graph.bind( '<Button-1>', self.cmdToggle)   # capture mouse button inside canvas
         self.graph = graph
@@ -70,10 +70,11 @@ class EditorWindow():
 
     def drawPixel( self, x, y):
         sf = self.sf
+        brd = 1+self.brd
         if  self.getPixel( x, y):
-            self.graph.create_rectangle( x*sf, y*sf, (x+1)*sf, (y+1)*sf, fill = 'white')
+            self.graph.create_rectangle( brd+x*sf, brd+y*sf, brd+(x+1)*sf, brd+(y+1)*sf, fill = 'white')
         else:
-            self.graph.create_rectangle( x*sf, y*sf, (x+1)*sf, (y+1)*sf, fill = 'black')
+            self.graph.create_rectangle( brd+x*sf, brd+y*sf, brd+(x+1)*sf, brd+(y+1)*sf, fill = 'black')
 
     def cmdLoad( self):
         if self.modified:
@@ -120,8 +121,8 @@ uint8_t pic[]={
 
 
     def cmdToggle( self, event):
-        x = int( self.graph.canvasx( event.x)/self.sf)
-        y = int( self.graph.canvasy( event.y)/self.sf)
+        x = int( (self.graph.canvasx( event.x)-1-self.brd)/self.sf) 
+        y = int( (self.graph.canvasy( event.y)-1-self.brd)/self.sf) 
         if x < self.wx and y < self.wy:
             self.invPixel( x, y)
             self.modified = True
