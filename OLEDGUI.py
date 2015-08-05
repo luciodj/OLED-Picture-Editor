@@ -4,6 +4,8 @@
 #
 import sys
 from Tkinter import *
+from itertools import imap
+from os import path
 import tkMessageBox
 #
 # window definition
@@ -29,12 +31,11 @@ class EditorWindow():
         self.filename.set( name)
         e = Entry( win, width=64, takefocus=YES, textvariable = self.filename)
         e.grid(  padx=10, pady=10, row=1, column=1, sticky=W)
+        e.focus_set()   # take over input from other windows, select address field
+        e.icursor(END)  # set cursor after last digit
 
-        Button( win, text='Load', takefocus=YES, command=self.cmdLoad ).grid(
-        padx=10, pady=10, row=1, column=2)
-
-        Button( win, text='Save', takefocus=YES, command=self.cmdSave ).grid(
-            padx=10, pady=10, row=1, column=3)
+        Button( win, text='Load', takefocus=YES, command=self.cmdLoad ).grid( padx=10, pady=10, row=1, column=2)
+        Button( win, text='Import', takefocus=YES, command=self.cmdImport ).grid( padx=10, pady=10, row=1, column=3)
 
         #------- editor canvas ----------------------------
         brd = 2
@@ -49,11 +50,8 @@ class EditorWindow():
         self.drawPicture()
 
         #------- button Close -----------------------------------
+        Button( win, text='Save', takefocus=YES, command=self.cmdSave ).grid( padx=10, pady=10, row=3, column=2)
         Button( win, text='Close', takefocus=NO, command=self.cmdQuit).grid( padx=10, pady=10, row=3, column=3)
-
-        # set focus and cursor
-        e.focus_set()	# take over input from other windows, select address field
-        e.icursor(END)	# set cursor after last digit
 
     #-------------------- Graphs methods
     def drawPicture( self):
@@ -63,6 +61,10 @@ class EditorWindow():
 
     def getPixel( self, x, y):
         return self.array[ (y>>3)*self.wx + self.wx-x-1] & (1<< (y&7)) != 0
+
+    def setPixel( self, x, y):
+        self.array[ (y>>3)*self.wx + self.wx-x-1] |= (1 << ( y&7))
+        self.drawPixel( x, y)
 
     def invPixel( self, x, y):
         self.array[ (y>>3)*self.wx + self.wx-x-1] ^= (1 << ( y&7))
@@ -76,9 +78,41 @@ class EditorWindow():
         else:
             self.graph.create_rectangle( brd+x*sf, brd+y*sf, brd+(x+1)*sf, brd+(y+1)*sf, fill = 'black')
 
+    def cmdToggle( self, event):
+        x = int( (self.graph.canvasx( event.x)-1-self.brd)/self.sf) 
+        y = int( (self.graph.canvasy( event.y)-1-self.brd)/self.sf) 
+        if x < self.wx and y < self.wy:
+            self.invPixel( x, y)
+            self.modified = True
+
+    def cmdImport( self):
+        THR = THG = THB = 1
+        if self.modified:
+            if not tkMessageBox.askokcancel( 'Import', 'Unsaved changes will be lost!\n Are you sure?', icon='warning'):            
+                return
+        filename = self.filename.get()
+        base, ext = path.splitext( filename)
+        if ext == '': ext = '.gif'
+        if ext != '.gif': 
+            tkMessageBox.showinfo( 'Error', 'Only GIF files can be imported!', icon='warning')
+            return
+        filename = base + ext
+        try:
+            photo = PhotoImage( file=filename)
+        except: print 'Could not import image file:', filename
+        else:
+            wx = min( self.wx, photo.width()); wy = min( self.wy, photo.height())
+            for y in xrange( wy):
+                for x in xrange( wx):
+                    r, g, b = imap( lambda x: int(x), photo.get( x, y).split())
+                    if (r, g, b) == (0,0,0) or (r, g, b) == (255, 255, 255): continue  # discard transparent and white
+                    if r > THR or g > THG or b > THB : self.setPixel( x, y)
+            print 'File %s imported successfully' % filename
+            self.modified = False
+
     def cmdLoad( self):
         if self.modified:
-            if not tkMessageBox.askokcancel("Load", "Unsaved changes will be lost,\n are you sure?"):            
+            if not tkMessageBox.askokcancel( 'Load', '"'Unsaved changes will be lost,\n are you sure?', icon='warning'):            
                 return
         i = 0
         last = (self.wx * self.wy/8) 
@@ -102,30 +136,31 @@ class EditorWindow():
                 print 'File format could not be recognized!'
         except IOError: print 'File %s not found' % self.filename.get()
 
-
     def cmdSave( self):
+        filename = self.filename.get()
+        if path.isfile( filename): 
+            if not tkMessageBox.askokcancel('Save', 'File %s already exist!\n Overwrite?'% filename):            
+                return            
+        base, ext = path.splitext( filename)
+        if ext == '': ext = '.c'
+        if ext != '.c':
+            tkMessageBox.showinfo( 'Error', 'Only .c files can be generated!', icon='warning')
+            return
+        filename = base + ext
         try:
-            with open( self.filename.get(), "wt") as f:
-                f.write( '''/*
- *  OLED display image file
- */
-uint8_t pic[]={
-'''                )
+            with open( filename, "wt") as f:
+                f.write( '/*\n')
+                f.write( ' *  OLED display image \n')
+                f.write( ' *  %s x %s \n' % ( self.wx, self.wy))
+                f.write( ' */ \n')
+                f.write( 'uint8_t %s[]={ \n' % base)
                 for x in xrange( 0, self.wx * self.wy/8, 16):
                     for k in xrange( 16):
                         f.write( '0x%02x, '% self.array[ x + k])
                     f.write( '\n')
                 f.write( '};\n')
                 self.modified = False
-        except IOError: print 'Cannot write file:', self.filename.get()
-
-
-    def cmdToggle( self, event):
-        x = int( (self.graph.canvasx( event.x)-1-self.brd)/self.sf) 
-        y = int( (self.graph.canvasy( event.y)-1-self.brd)/self.sf) 
-        if x < self.wx and y < self.wy:
-            self.invPixel( x, y)
-            self.modified = True
+        except IOError: print 'Cannot write file:', filename
 
     def cmdQuit( self):
         if self.modified: 
