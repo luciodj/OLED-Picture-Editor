@@ -112,7 +112,7 @@ class EditorWindow():
 
     def cmdLoad( self):
         if self.modified:
-            if not tkMessageBox.askokcancel( 'Load', '"'Unsaved changes will be lost,\n are you sure?', icon='warning'):            
+            if not tkMessageBox.askokcancel( 'Load', 'Unsaved changes will be lost,\n are you sure?', icon='warning'):            
                 return
         i = 0
         last = (self.wx * self.wy/8) 
@@ -153,7 +153,8 @@ class EditorWindow():
                 f.write( ' *  OLED display image \n')
                 f.write( ' *  %s x %s \n' % ( self.wx, self.wy))
                 f.write( ' */ \n')
-                f.write( 'uint8_t %s[]={ \n' % base)
+                f.write( '#include "mcc_generated_files/mcc.h"\n\n')
+                f.write( 'const uint8_t %s[]={ \n' % base)
                 for x in xrange( 0, self.wx * self.wy/8, 16):
                     for k in xrange( 16):
                         f.write( '0x%02x, '% self.array[ x + k])
