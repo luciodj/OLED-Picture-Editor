@@ -50,6 +50,7 @@ class EditorWindow():
         self.drawPicture()
 
         #------- button Close -----------------------------------
+        # Button( win, text='FlipX', takefocus=YES, command=self.cmdFlipX ).grid( padx=10, pady=10, row=3, column=0)
         Button( win, text='Save', takefocus=YES, command=self.cmdSave ).grid( padx=10, pady=10, row=3, column=2)
         Button( win, text='Close', takefocus=NO, command=self.cmdQuit).grid( padx=10, pady=10, row=3, column=3)
 
@@ -60,14 +61,14 @@ class EditorWindow():
                 self.drawPixel( x, y)       
 
     def getPixel( self, x, y):
-        return self.array[ (y>>3)*self.wx + self.wx-x-1] & (1<< (y&7)) != 0
+        return self.array[ (y>>3)*self.wx + x] & (1<< (y&7)) != 0
 
     def setPixel( self, x, y):
-        self.array[ (y>>3)*self.wx + self.wx-x-1] |= (1 << ( y&7))
+        self.array[ (y>>3)*self.wx + x] |= (1 << ( y&7))
         self.drawPixel( x, y)
 
     def invPixel( self, x, y):
-        self.array[ (y>>3)*self.wx + self.wx-x-1] ^= (1 << ( y&7))
+        self.array[ (y>>3)*self.wx + x] ^= (1 << ( y&7))
         self.drawPixel( x, y)
 
     def drawPixel( self, x, y):
@@ -84,6 +85,14 @@ class EditorWindow():
         if x < self.wx and y < self.wy:
             self.invPixel( x, y)
             self.modified = True
+
+    def cmdFlipX( self):
+        for y in xrange( 0, self.wy/8*self.wx, self.wx):
+            for x in xrange( self.wx/2):
+                xo = self.wx-x-1
+                self.array[ x + y], self.array[ xo + y] = self.array[ xo + y], self.array[ x + y]
+        self.drawPicture()
+        self.modified = True
 
     def cmdImport( self):
         THR = THG = THB = 1
